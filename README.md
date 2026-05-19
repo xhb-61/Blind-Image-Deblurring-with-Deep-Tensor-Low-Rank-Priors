@@ -20,6 +20,16 @@ The optimization follows an ADMM-style alternating scheme:
 4. Apply Tucker decomposition and MCP thresholding to the generated image and kernel tensors.
 5. Save intermediate and final deblurred images and estimated kernels.
 
+![Figure 1: Method overview](assets/paper/figure_1_method_overview.png)
+
+## Results Showcase
+
+Table 1 reports average PSNR and SSIM on the Lai non-uniform dataset. Figure 6 shows a qualitative comparison on a challenging Lai example.
+
+![Table 1: Quantitative comparison on the Lai non-uniform dataset](assets/paper/table_1_lai_results.png)
+
+![Figure 6: Qualitative comparison on a challenging Lai example](assets/paper/figure_6_lai_results.png)
+
 ## Repository Layout
 
 ```text
