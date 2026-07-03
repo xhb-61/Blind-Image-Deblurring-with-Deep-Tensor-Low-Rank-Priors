@@ -120,7 +120,7 @@ def dtccp_tucker_prox(x, dual, ranks, eta, alpha, mcp_lambda, mcp_gamma):
     core_threshold = mcp_threshold(core, prox_lambda, mcp_gamma)
     return tl.tucker_to_tensor((core_threshold, factors))
 
-# set_seed(opt.seed)
+
 
 dtype = torch.cuda.FloatTensor
 warnings.filterwarnings("ignore")
@@ -153,17 +153,11 @@ for f in files_source:
     imgname = os.path.basename(f)
     imgname = os.path.splitext(imgname)[0]
 
-    # if (imgname.find('roma') != -1):
-    #     print(imgname)
-    # else:
-    #     continue
 
-    # print(imgname)
     new_path = os.path.join(opt.save_path, "%s_work" % imgname)
     os.makedirs(new_path, exist_ok=True)
     imgs, y = get_color_image(path_to_image, -1)  # load image and convert to np.
-    ## for correct kernel init
-    # _ , y0 = get_color_image('./datasets/lai/nonuniform/manmade_01_gyro_02.png', -1)
+    
 
     img_blur = np_to_torch(imgs).type(dtype)
     parts = imgname.split("_")
@@ -173,11 +167,7 @@ for f in files_source:
 
     # load groudtruth
     real_img_name = f"./datasets/lai/ground_truth/{imgname[:-8]}.png"
-    # print(real_img_name)
-    # load groudtruth
-    # img_real, y1 = get_color_image('./people_01_kernel_3.png', -1)
-    # img_real, y1 = get_color_image('./real2/im15.png', -1)
-    # img_real, y1 = get_color_image('./Lai/GT/natural_05_kernel_1.png', -1)
+    
     img_real, y1 = get_color_image(real_img_name, -1)
     img_real = np_to_torch(img_real).type(dtype).squeeze()
     img_real_np = torch_to_np(img_real.permute(1, 2, 0).unsqueeze(0))
@@ -240,14 +230,8 @@ for f in files_source:
         p.requires_grad = False
     net_kernel_encoder.eval()
     y = TVTF.to_tensor(y).unsqueeze(0).cuda()
-    # y0 = TVTF.to_tensor(y0).unsqueeze(0).cuda()
-    # z = net_kernel_encoder(y0)
     z = net_kernel_encoder(y)
-    # zz = z.repeat(n_grid, 1, 1, 1)
-    # candidate_fes = [net_kernel_decoder.module.g1(zz + torch.randn_like(zz) * 0.5) for _ in range(200)]
-    # best_fe = max(candidate_fes, key=lambda x: ssim_loss(eff.forward(net(net_input), net_kernel_decoder.module.Gk(x)
-    #                                                                  .view(1, opt.grid_size[0]*opt.grid_size[1], opt.kernel_size[0], opt.kernel_size[1])), img_blur))
-    # zz = z.repeat(n_grid, 1, 1, 1)
+    
     candidate_fes = [
         net_kernel_decoder.module.g1(
             (z + torch.randn_like(z) * ckir_noise_std).repeat(n_grid, 1, 1, 1)
@@ -257,13 +241,7 @@ for f in files_source:
     best_fe = max(candidate_fes, key=lambda x: ssim_loss(eff.forward(net(net_input), net_kernel_decoder.module.Gk(x)
                                                                      .view(1, opt.grid_size[0]*opt.grid_size[1], opt.kernel_size[0], opt.kernel_size[1])), img_blur))
     fe = best_fe.requires_grad_(True)
-    # if isinstance(net_kernel_decoder, nn.DataParallel):
-    #     fe = net_kernel_decoder.module.g1(zz)
-    # else:
-    #     fe = net_kernel_decoder.g1(zz)
-    # fe.requires_grad = True
-
-
+ 
     optimizer_img = torch.optim.Adam(net.parameters(), lr=lr_img)
     optimizer_kernel = torch.optim.Adam([{"params": [fe], "lr": lr_kernel}])
     scheduler_img = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_img, T_max=500)
@@ -328,7 +306,10 @@ for f in files_source:
         optimizer_img.zero_grad()
         out_x = net(net_input)
         out_img = eff.forward(out_x, out_k_c0)
-        fidelity_loss = 0.5 * mse(out_img, img_blur)
+        if step < 500:
+            fidelity_loss = 0.5 * mse(out_img, img_blur)
+        else:
+            fidelity_loss = 1 - ssim_loss(out_img, img_blur)
         loss_reg = 0.5 * beta_x * mse(out_x, x_estimate + ux)
         total_loss = fidelity_loss + loss_reg
         total_loss.backward()
@@ -357,7 +338,10 @@ for f in files_source:
             out_k_c = net_kernel_decoder.Gk(fe)
         out_k_c = out_k_c.view(1, opt.grid_size[0]*opt.grid_size[1], opt.kernel_size[0], opt.kernel_size[1])
         out_img = eff.forward(out_x0, out_k_c)
-        fidelity_loss = 0.5 * mse(out_img, img_blur)
+        if step < 500:
+            fidelity_loss = 0.5 * mse(out_img, img_blur)
+        else:
+            fidelity_loss = 1 - ssim_loss(out_img, img_blur)
         loss_reg = 0.5 * beta_k * mse(out_k_c, k_estimate + u)
         total_loss = fidelity_loss + loss_reg
         total_loss.backward()
